@@ -55,13 +55,7 @@ class MineSweeperEnv(gym.Env):
         info = self._get_info()
         return observation, info
 
-    def step(self, action: int | tuple[int, int]):
-        if self.flat_action and isinstance(action, int):
-            action = (action // self.gameboard.n_rows, action % self.gameboard.n_cols)
-        elif self.flat_action or not isinstance(action, tuple):
-            raise TypeError(
-                f"Unexpected type of action: {type(action)} (flat_action={self.flat_action})"
-            )
+    def step(self, action: tuple[int, int]):
         result = self.gameboard.open(*action)
 
         observation = self.gameboard.get_visible_board()
@@ -70,8 +64,18 @@ class MineSweeperEnv(gym.Env):
         info = self._get_info()
         return observation, reward, terminated, False, info
 
+    def sample_action(self) -> tuple[int, int]:
+        action = self.action_space.sample()
+        if self.flat_action:
+            return self.convert_action(action)
+        else:
+            return tuple(action)
+
     def render(self) -> str:
         return self.gameboard.render()
+
+    def convert_action(self, action: int) -> tuple[int, int]:
+        return (action // self.gameboard.n_rows, action % self.gameboard.n_cols)
 
     def _get_info(self) -> dict[str, Any]:
         return {
