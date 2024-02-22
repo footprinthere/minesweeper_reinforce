@@ -10,7 +10,12 @@ from .openresult import OpenResult
 class MineSweeperEnv(gym.Env):
     metadata = {"render_modes": ["ansi"]}
 
-    def __init__(self, board_size: tuple[int, int], n_mines: int):
+    def __init__(
+        self,
+        board_size: tuple[int, int],
+        n_mines: int,
+        flat_action: bool = False,
+    ):
         self.gameboard = GameBoard(*board_size, n_mines)
 
         # State as an integer matrix of the same shape as the game board
@@ -20,8 +25,14 @@ class MineSweeperEnv(gym.Env):
             shape=board_size,
             dtpye=int,
         )
-        # Action as a coordinate on the game board
-        self.action_space = spaces.MultiDiscrete(list(board_size))
+
+        self.flat_action = flat_action
+        if flat_action:
+            # Action as an intger that specifies a certain position
+            self.action_space = spaces.Discrete(board_size[0] * board_size[1])
+        else:
+            # Action as a coordinate on the game board
+            self.action_space = spaces.MultiDiscrete(list(board_size))
 
         self.reward_map = {
             OpenResult.FAIL: -10,
@@ -44,7 +55,13 @@ class MineSweeperEnv(gym.Env):
         info = self._get_info()
         return observation, info
 
-    def step(self, action: tuple[int, int]):
+    def step(self, action: int | tuple[int, int]):
+        if self.flat_action and isinstance(action, int):
+            action = (action // self.gameboard.n_rows, action % self.gameboard.n_cols)
+        elif self.flat_action or not isinstance(action, tuple):
+            raise TypeError(
+                f"Unexpected type of action: {type(action)} (flat_action={self.flat_action})"
+            )
         result = self.gameboard.open(*action)
 
         observation = self.gameboard.get_visible_board()
