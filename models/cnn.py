@@ -1,4 +1,4 @@
-from torch import nn
+from torch import nn, Tensor
 import torch.nn.functional as F
 
 
@@ -23,7 +23,9 @@ class MineSweeperCNN(nn.Module):
         n_cells = board_size[0] * board_size[1]
         self.ff = nn.Linear(in_features=n_channels * n_cells, out_features=n_cells)
 
-    def forward(self, state):
+    def forward(self, state: Tensor) -> Tensor:
+        # state: (N, H, W)
+        state = state.unsqueeze(1)  # (N, 1, H, W)
         v = F.relu(self.input(state))  # (N, C, H, W)
         for layer in self.cnns:
             v = F.relu(layer(v))
