@@ -11,13 +11,8 @@ class GameBoard:
     # Cells that are not open yet (for visible board)
     CLOSED = -2
 
-    @staticmethod
-    @property
-    def lower_bound() -> int:
-        """Lower bound of values in the game board."""
-        return min(GameBoard.MINE, GameBoard.CLOSED)
-
-    upper_bound: int = 9
+    lower_bound = min(MINE, CLOSED)
+    upper_bound = 9
 
     def __init__(self, n_rows: int, n_cols: int, n_mines: int):
         self.n_rows = n_rows
