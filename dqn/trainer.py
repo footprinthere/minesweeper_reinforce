@@ -2,8 +2,10 @@ import math
 import random
 from itertools import count
 
+import matplotlib.pyplot as plt
 import torch
 from torch import nn, optim, Tensor
+from tqdm import tqdm
 
 from .memory import ReplayMemory, Transition
 from game import MineSweeperEnv
@@ -35,8 +37,10 @@ class MineSweeperTrainer:
         self.env: MineSweeperEnv = None
 
         self.steps_done = 0
+        self.losses = []
+        self.durations = []
 
-    def register_models(
+    def register(
         self,
         policy_net: nn.Module,
         target_net: nn.Module,
@@ -51,33 +55,64 @@ class MineSweeperTrainer:
             self.policy_net.parameters(), lr=self.lr, amsgrad=True
         )
 
-    def train(self, num_episodes: int):
-        episode_durations = []
+    def train(self, n_episodes: int, print_board: bool = False):
+        self.losses.clear()
+        self.durations.clear()
 
-        for i in range(num_episodes):
+        for i in tqdm(range(n_episodes)):
             # Reset environment
             state, _ = self.env.reset()
             state = torch.tensor(state, dtype=torch.float32).unsqueeze(0)  # [1, ...]
 
             for t in count():
-                next_state, terminated = self.step(state)
+                next_state, loss, terminated = self.step(state)
+                self.losses.append(loss)
+
+                if print_board:
+                    print(self.env.render())
                 if terminated:
-                    episode_durations.append(t + 1)
+                    self.durations.append(t + 1)
                     break
 
                 state = next_state
 
-    def step(self, state: Tensor) -> tuple[Tensor | None, bool]:
+            if loss is not None:
+                tqdm.write(f"Episode {i} - loss {loss :.4f}, duration {t + 1}")
+
+    def save(path: str):
+        # TODO: Save model weights
+        ...
+
+    def plot_result(self, file_prefix: str):
+        # Loss
+        plt.title("Loss")
+        plt.xlabel("step")
+        plt.ylabel("loss")
+        plt.plot(self.losses)
+        plt.savefig(f"{file_prefix}_loss.jpg")
+        plt.show()
+
+        # Duration
+        plt.title("Duration")
+        plt.xlabel("episode")
+        plt.ylabel("duration")
+        plt.plot(self.durations)
+        plt.savefig(f"{file_prefix}_duration.jpg")
+        plt.show()
+
+    def step(self, state: Tensor) -> tuple[Tensor | None, float | None, bool]:
         """
         Conducts one training step.
 
         RETURN
-        - `next_state`
+        - `next_state`: `None` when the current episode is terminated
+        - `loss`: `None` when the replay memory is not filled yet
         - `terminated`: whether the current episode is terminated
         """
 
         action = self._select_action(state)
-        observation, reward, terminated, _, _ = self.env.step(action)
+        pos = self.env.tensor_to_pos(action)
+        observation, reward, terminated, _, _ = self.env.step(pos)
         reward = torch.tensor([reward])
 
         if terminated:
@@ -89,7 +124,7 @@ class MineSweeperTrainer:
         self.memory.push(state, action, next_state, reward)
 
         # Perform one step of optimization on the policy network
-        self.optimize()
+        loss = self.optimize()
 
         # Soft update the target network's weights
         #   Alternatively, we can update the target network's weights every C steps
@@ -103,12 +138,12 @@ class MineSweeperTrainer:
 
         self.steps_done += 1
 
-        return next_state, terminated
+        return next_state, loss, terminated
 
-    def optimize(self):
+    def optimize(self) -> float | None:
 
         if len(self.memory) < self.batch_size:
-            return
+            return None
 
         transitions = self.memory.sample(batch_size=self.batch_size)
         batch = Transition(*zip(*transitions))
@@ -148,7 +183,9 @@ class MineSweeperTrainer:
         nn.utils.clip_grad_value_(self.policy_net.parameters(), 100)
         self.optimizer.step()
 
-    def _select_action(self, state: Tensor) -> tuple[int, int]:
+        return loss.item()
+
+    def _select_action(self, state: Tensor) -> Tensor:
         """
         Uses policy network to select an action given the current state.
         Chooses a random action (exploration) with certain probability.
@@ -157,7 +194,7 @@ class MineSweeperTrainer:
         - `state`: tensor of shape (1, ...)
 
         RETURN
-        - `action`: coordinate tuple (x, y)
+        - `action`: tensor of shape (1, 1) for flat, or (1, 2) for grid
         """
 
         p = random.random()
@@ -174,12 +211,12 @@ class MineSweeperTrainer:
             output = self.policy_net(state)
         if len(output.shape) == 2:
             # flat action space
-            action = torch.max(output, dim=1).indices.item()
-            return self.env.convert_action(action)
+            action = torch.max(output, dim=1).indices
+            return action.reshape(1, 1)
         elif len(output.shape) == 3:
             # grid action space
             x = torch.max(output, dim=1).indices.item()
             y = torch.max(output, dim=2).indices.item()
-            return (x, y)
+            return torch.tensor([[x, y]], dtype=torch.long)
         else:
             raise RuntimeError(f"Invalid model output of shape {output.shape}")

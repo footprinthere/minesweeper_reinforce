@@ -6,3 +6,4 @@ class OpenResult(int, Enum):
     WIN = auto()
     NEIGHBOR = auto()
     ISOLATED = auto()
+    DUPLICATED = auto()

@@ -1,5 +1,8 @@
 from typing import Any, Optional
 
+import numpy as np
+import torch
+from torch import Tensor
 import gymnasium as gym
 from gymnasium import spaces
 
@@ -28,17 +31,18 @@ class MineSweeperEnv(gym.Env):
 
         self.flat_action = flat_action
         if flat_action:
-            # Action as an intger that specifies a certain position
+            # Action as an intger that specifies a certain position: shape ()
             self.action_space = spaces.Discrete(board_size[0] * board_size[1])
         else:
-            # Action as a coordinate on the game board
+            # Action as a coordinate on the game board: shape (2,)
             self.action_space = spaces.MultiDiscrete(list(board_size))
 
         self.reward_map = {
             OpenResult.FAIL: -10,
             OpenResult.WIN: 10,
             OpenResult.NEIGHBOR: 1,
-            OpenResult.ISOLATED: -1,
+            OpenResult.ISOLATED: -3,
+            OpenResult.DUPLICATED: -3,
         }
 
     def reset(
@@ -64,18 +68,22 @@ class MineSweeperEnv(gym.Env):
         info = self._get_info()
         return observation, reward, terminated, False, info
 
-    def sample_action(self) -> tuple[int, int]:
+    def sample_action(self) -> Tensor:
         action = self.action_space.sample()
         if self.flat_action:
-            return self.convert_action(action)
+            return torch.tensor([[action]], dtype=torch.long)
         else:
-            return tuple(action)
+            return torch.tensor(np.array([action]), dtype=torch.long)
+
+    def tensor_to_pos(self, action: Tensor) -> tuple[int, int]:
+        if action.shape == (1, 1):
+            action = action.item()
+            return action // self.gameboard.n_rows, action % self.gameboard.n_cols
+        elif action.shape == (1, 2):
+            return tuple(action[0].numpy())
 
     def render(self) -> str:
         return self.gameboard.render()
-
-    def convert_action(self, action: int) -> tuple[int, int]:
-        return (action // self.gameboard.n_rows, action % self.gameboard.n_cols)
 
     def _get_info(self) -> dict[str, Any]:
         return {

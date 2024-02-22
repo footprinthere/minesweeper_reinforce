@@ -37,7 +37,9 @@ class GameBoard:
         return self._visible_board
 
     def render(self) -> str:
-        return GameBoard._board_to_string(self._visible_board)
+        return GameBoard._board_to_string(
+            self._visible_board, colored=[GameBoard.CLOSED]
+        )
 
     def print(self, print_hidden: bool = False):
         print("=" * self.n_cols)
@@ -57,8 +59,7 @@ class GameBoard:
         """Opens the givin position. Returns the result as enum variable."""
 
         if self._visible_board[x][y] != GameBoard.CLOSED:
-            raise RuntimeError(f"Given position ({x}, {y}) is already opened")
-
+            return OpenResult.DUPLICATED
         if self._hidden_board[x][y] == GameBoard.MINE:
             return OpenResult.FAIL
 
