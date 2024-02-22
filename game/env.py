@@ -23,7 +23,7 @@ class MineSweeperEnv(gym.Env):
             low=GameBoard.lower_bound,
             high=GameBoard.upper_bound,
             shape=board_size,
-            dtpye=int,
+            dtype=int,
         )
 
         self.flat_action = flat_action
