@@ -9,9 +9,10 @@ PRINT_HIDDEN = False
 
 def main():
     gameboard = GameBoard(*SIZE, N_MINES)
-    result = OpenResult.OK
+    gameboard.reset_board()
+    result = OpenResult.NEIGHBOR
 
-    while result == OpenResult.OK:
+    while result in (OpenResult.NEIGHBOR, OpenResult.ISOLATED):
         gameboard.print(print_hidden=PRINT_HIDDEN)
         x, y = get_position()
         result = gameboard.open(x, y)

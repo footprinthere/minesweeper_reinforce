@@ -9,17 +9,25 @@ class GameBoard:
     # Cells with mines (for hidden board)
     MINE = -1
     # Cells that are not open yet (for visible board)
-    CLOSED = -5
+    CLOSED = -2
+
+    @staticmethod
+    @property
+    def lower_bound() -> int:
+        """Lower bound of values in the game board."""
+        return min(GameBoard.MINE, GameBoard.CLOSED)
+
+    upper_bound: int = 9
 
     def __init__(self, n_rows: int, n_cols: int, n_mines: int):
         self.n_rows = n_rows
         self.n_cols = n_cols
         self.n_mines = n_mines
 
-        self.reset_board()
-
-    def reset_board(self):
+    def reset_board(self, seed: Optional[int] = None):
         """Initializes the game board for a new game."""
+
+        random.seed(seed)
 
         # The hidden game board that contains all information about the mines.
         self._hidden_board = self._get_new_board()
@@ -28,20 +36,27 @@ class GameBoard:
             [GameBoard.CLOSED] * self.n_cols for _ in range(self.n_rows)
         ]
         # The number of cells that is not opened yet.
-        self._n_closed = self.n_rows * self.n_cols
+        self.n_closed = self.n_rows * self.n_cols
 
     def get_visible_board(self) -> list[list[int]]:
         return self._visible_board
 
+    def render(self) -> str:
+        return GameBoard._board_to_string(self._visible_board)
+
     def print(self, print_hidden: bool = False):
         print("=" * self.n_cols)
-        GameBoard._print_board(self._visible_board, colored=[GameBoard.CLOSED])
+        print(
+            GameBoard._board_to_string(self._visible_board, colored=[GameBoard.CLOSED])
+        )
 
-        print("n_closed =", self._n_closed)
+        print("n_closed =", self.n_closed)
 
         if print_hidden:
             print("[hidden]")
-            GameBoard._print_board(self._hidden_board, colored=[GameBoard.MINE])
+            print(
+                GameBoard._board_to_string(self._hidden_board, colored=[GameBoard.MINE])
+            )
 
     def open(self, x: int, y: int) -> OpenResult:
         """Opens the givin position. Returns the result as enum variable."""
@@ -57,11 +72,11 @@ class GameBoard:
         while queue:
             qx, qy = queue.popleft()
             if self._visible_board[qx][qy] != GameBoard.CLOSED:
-                continue    # already opened
+                continue  # already opened
 
             hidden = self._hidden_board[qx][qy]
             self._visible_board[qx][qy] = hidden  # open
-            self._n_closed -= 1
+            self.n_closed -= 1
             if hidden != 0:
                 continue
 
@@ -69,10 +84,12 @@ class GameBoard:
             for ax, ay in self._around(qx, qy):
                 queue.append((ax, ay))
 
-        if self._n_closed <= self.n_mines:
+        if self.n_closed <= self.n_mines:
             return OpenResult.WIN
+        elif self._is_neighboring(x, y):
+            return OpenResult.NEIGHBOR
         else:
-            return OpenResult.OK
+            return OpenResult.ISOLATED
 
     def _get_new_board(self) -> list[list[int]]:
         """Fills the game board with mines and numbers to start a new game."""
@@ -115,12 +132,27 @@ class GameBoard:
             if (0 <= nx < self.n_rows) and (0 <= ny < self.n_cols):
                 yield nx, ny
 
+    def _is_neighboring(self, x: int, y: int) -> bool:
+        """Check if the given position is neighboring to a opened position."""
+
+        for ax, ay in self._around(x, y):
+            if self._visible_board[ax][ay] != GameBoard.CLOSED:
+                return True
+        return False
+
     @staticmethod
-    def _print_board(board: list[list[int]], colored: Optional[list[int]] = None):
+    def _board_to_string(
+        board: list[list[int]],
+        colored: Optional[list[int]] = None,
+    ) -> str:
+        output = ""
+
         for row in board:
             for elem in row:
                 if colored is not None and elem in colored:
-                    print(f"\033[31m{elem: >3}\033[37m", end="")
+                    output += f"\033[31m{elem: >3}\033[37m"
                 else:
-                    print(f"{elem: >3}", end="")
-            print()
+                    output += f"{elem: >3}"
+            output += "\n"
+
+        return output

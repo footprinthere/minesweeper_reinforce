@@ -1,7 +1,8 @@
-from enum import Enum
+from enum import Enum, auto
 
 
 class OpenResult(int, Enum):
-    FAIL = 0
-    OK = 1
-    WIN = 2
+    FAIL = auto()
+    WIN = auto()
+    NEIGHBOR = auto()
+    ISOLATED = auto()
