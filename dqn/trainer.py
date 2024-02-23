@@ -64,20 +64,27 @@ class MineSweeperTrainer:
             state, _ = self.env.reset()
             state = torch.tensor(state, dtype=torch.float32).unsqueeze(0)  # [1, ...]
 
+            episode_losses = []
             for t in count():
                 next_state, loss, terminated = self.step(state)
-                self.losses.append(loss)
-
+                if loss is not None:
+                    episode_losses.append(loss)
                 if print_board:
                     print(self.env.render())
+
                 if terminated:
-                    self.durations.append(t + 1)
                     break
 
                 state = next_state
 
-            if loss is not None:
-                tqdm.write(f"Episode {i} - loss {loss :.4f}, duration {t + 1}")
+            if episode_losses:
+                avg_loss = sum(episode_losses) / len(episode_losses)
+            else:
+                avg_loss = 0.0
+            self.losses.append(avg_loss)
+            self.durations.append(t + 1)
+
+            tqdm.write(f"Episode {i} - loss {avg_loss :.4f}, duration {t + 1}")
 
     def save(path: str):
         # TODO: Save model weights
@@ -86,11 +93,11 @@ class MineSweeperTrainer:
     def plot_result(self, file_prefix: str):
         # Loss
         plt.title("Loss")
-        plt.xlabel("step")
+        plt.xlabel("episodes")
         plt.ylabel("loss")
         plt.plot(self.losses)
         plt.savefig(f"{file_prefix}_loss.jpg")
-        plt.show()
+        plt.clf()
 
         # Duration
         plt.title("Duration")
@@ -98,7 +105,7 @@ class MineSweeperTrainer:
         plt.ylabel("duration")
         plt.plot(self.durations)
         plt.savefig(f"{file_prefix}_duration.jpg")
-        plt.show()
+        plt.clf()
 
     def step(self, state: Tensor) -> tuple[Tensor | None, float | None, bool]:
         """
