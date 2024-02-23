@@ -1,4 +1,7 @@
 __pycache__
 
+# Shell script
+*.sh
+
 # Result plots
 *.jpg
