@@ -5,11 +5,10 @@ from dqn import MineSweeperTrainer
 from models import MineSweeperCNN
 
 
-FILE_PREFIX = "test"
-
-
 def main():
     parser = argparse.ArgumentParser()
+
+    parser.add_argument("--prefix", type=str)
 
     parser.add_argument("--board_rows", type=int)
     parser.add_argument("--board_cols", type=int)
@@ -61,7 +60,7 @@ def main():
 
     # Plot result
     print("Training complete")
-    trainer.plot_result(FILE_PREFIX)
+    trainer.plot_result(file_prefix=args.prefix)
 
 
 if __name__ == "__main__":
