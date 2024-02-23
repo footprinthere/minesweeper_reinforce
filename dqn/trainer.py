@@ -8,7 +8,7 @@ from torch import nn, optim, Tensor
 from tqdm import tqdm
 
 from .memory import ReplayMemory, Transition
-from game import MineSweeperEnv
+from game import MineSweeperEnv, OpenResult
 
 
 class MineSweeperTrainer:
@@ -39,6 +39,7 @@ class MineSweeperTrainer:
         self.steps_done = 0
         self.losses = []
         self.durations = []
+        self.win = []
 
     def register(
         self,
@@ -58,6 +59,7 @@ class MineSweeperTrainer:
     def train(self, n_episodes: int, print_board: bool = False):
         self.losses.clear()
         self.durations.clear()
+        self.win.clear()
 
         for i in tqdm(range(n_episodes)):
             # Reset environment
@@ -66,11 +68,12 @@ class MineSweeperTrainer:
 
             episode_losses = []
             for t in count():
-                next_state, loss, terminated = self.step(state)
+                next_state, loss, terminated, result = self.step(state)
                 if loss is not None:
                     episode_losses.append(loss)
                 if print_board:
-                    print(self.env.render())
+                    tqdm.write("=== board ===")
+                    tqdm.write(self.env.render())
 
                 if terminated:
                     break
@@ -83,6 +86,7 @@ class MineSweeperTrainer:
                 avg_loss = 0.0
             self.losses.append(avg_loss)
             self.durations.append(t + 1)
+            self.win.append(result == OpenResult.WIN)
 
             tqdm.write(f"Episode {i} - loss {avg_loss :.4f}, duration {t + 1}")
 
@@ -107,7 +111,13 @@ class MineSweeperTrainer:
         plt.savefig(f"{file_prefix}_duration.jpg")
         plt.clf()
 
-    def step(self, state: Tensor) -> tuple[Tensor | None, float | None, bool]:
+        # Game result
+        plt.title("Result")
+        plt.plot(self.win, "r.")
+        plt.savefig(f"{file_prefix}_result.jpg")
+        plt.clf()
+
+    def step(self, state: Tensor):
         """
         Conducts one training step.
 
@@ -115,11 +125,12 @@ class MineSweeperTrainer:
         - `next_state`: `None` when the current episode is terminated
         - `loss`: `None` when the replay memory is not filled yet
         - `terminated`: whether the current episode is terminated
+        - `result`: enum instance of `OpenResult`
         """
 
         action = self._select_action(state)
         pos = self.env.tensor_to_pos(action)
-        observation, reward, terminated, _, _ = self.env.step(pos)
+        observation, reward, terminated, _, info = self.env.step(pos)
         reward = torch.tensor([reward])
 
         if terminated:
@@ -145,7 +156,7 @@ class MineSweeperTrainer:
 
         self.steps_done += 1
 
-        return next_state, loss, terminated
+        return next_state, loss, terminated, info["result"]
 
     def optimize(self) -> float | None:
 
