@@ -63,8 +63,9 @@ class GameBoard:
         if self._hidden_board[x][y] == GameBoard.MINE:
             return OpenResult.FAIL
 
-        queue = deque([(x, y)])  # queue for DFS
+        is_neighboring = self._is_neighboring(x, y)
 
+        queue = deque([(x, y)])  # queue for DFS
         while queue:
             qx, qy = queue.popleft()
             if self._visible_board[qx][qy] != GameBoard.CLOSED:
@@ -82,7 +83,7 @@ class GameBoard:
 
         if self.n_closed <= self.n_mines:
             return OpenResult.WIN
-        elif self._is_neighboring(x, y):
+        elif is_neighboring:
             return OpenResult.NEIGHBOR
         else:
             return OpenResult.ISOLATED

@@ -63,8 +63,7 @@ class MineSweeperEnv(gym.Env):
         result = self.gameboard.open(*action)
 
         observation = self.gameboard.get_visible_board()
-        reward = self.reward_map[result]
-        terminated = reward in (OpenResult.FAIL, OpenResult.WIN)
+        terminated = result in (OpenResult.FAIL, OpenResult.WIN)
         info = self._get_info()
         return observation, reward, terminated, False, info
 
